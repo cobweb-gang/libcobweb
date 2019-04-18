@@ -7,3 +7,10 @@ Currently `cobweb` is in version 0.1.0, and it pretty much sucks. The APIs can b
 Check out the documentation and examples for more info on how to use the library.
 
 `cobweb` is licensed under AGPLv3 to make sure that is free software and stays as free software. If you want a relicensed version for your project, email me and we (the contributers) will talk with you.
+
+## Build
+Building a crate that depends on `cobweb` will require the following flag to be set:
+
+```
+RUSTFLAGS=-Ctarget-feature=+aes,+ssse3
+```
