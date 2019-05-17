@@ -7,8 +7,6 @@ use std::io::Result;
 use keybob::Key;
 use tun_tap::{Iface, Mode};
 use tun_tap::r#async::Async;
-use tun_tap_mac::{Iface as MacIface, Mode as MacMode};
-use tun_tap_mac::r#async::Async as MacAsync;
 use std::process::Command;
 use tokio_core::reactor::Handle;
 use futures::prelude::*;
@@ -27,21 +25,18 @@ fn cmd(cmd: &str, args: &[&str]) {
     assert!(ecode.success(), "Failed to execute {}", cmd);
 }
 
-pub struct EncryptedTun<T: Sink, U: Stream> {
-    sink: T,
-    stream: U,
+pub struct Tun {
+    sink: SplitSink<Async>,
+    stream: SplitStream<Async>,
 }
 
-impl<T, U> EncryptedTun<T, U>
-where T: Sink<SinkItem=Vec<u8>>,
-      U: Stream<Item=Vec<u8>>,
-      U::Error: std::fmt::Debug,
-{
-    pub fn new(handle: &Handle) -> Result<
-        EncryptedTun<
-            SplitSink<Async>,
-            SplitStream<Async>
-            >>
+pub struct EncryptedTun {
+    sink: With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>,
+    stream: Map<SplitStream<Async>, en::En>,
+}
+
+impl Tun {
+    pub fn new(handle: &Handle) -> Result<Tun>
         {
         
         let tun = Iface::new("vpn%d", Mode::Tun);
@@ -58,68 +53,53 @@ where T: Sink<SinkItem=Vec<u8>>,
             .unwrap()
             .split();
         
-        Ok(EncryptedTun {
-            sink: sink,
-            stream: stream,
-        })
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn new(handle: &Handle) -> Result<
-        EncryptedTun<
-            SplitSink<MacAsync>,
-            SplitStream<MacAsync>
-            >>
-        {
-        
-        let tun = MacIface::new("vpn%d", Mode::Tun);
-
-        if tun.is_err() {
-            eprintln!("ERROR: Permission denied. Try running as superuser");
-            ::std::process::exit(1);
-        }
-       
-        let tun_ok = tun.unwrap();
-        cmd("ip", &["addr", "add", "dev", tun_ok.name(), "10.107.1.3/24"]);
-        cmd("ip", &["link", "set", "up", "dev", tun_ok.name()]);
-        let (sink, stream) = MacAsync::new(tun_ok, handle)
-            .unwrap()
-            .split();
-        
-        Ok(EncryptedTun {
+        Ok(Tun {
             sink: sink,
             stream: stream,
         })
     }
     
-    pub fn encrypt(self, key: &Key) -> Result<
-        EncryptedTun<
-            With<T, Vec<u8>, De, Result<Vec<u8>>>,
-            Map<U, En>
-            >>
-            where std::io::Error: std::convert::From<<T as futures::Sink>::SinkError>
-            {
+    pub fn encrypt(self, key: &Key) -> Result<EncryptedTun> {
         let encryptor = En::new(&key);
         let decryptor = De::new(&key);
-        
-        let decrypted_sink = self.sink.with(decryptor);
-        let encrypted_stream = self.stream.map(encryptor);
-        
+       
         Ok(EncryptedTun {
-            sink: decrypted_sink,
-            stream: encrypted_stream,
+            sink: self.sink.with(decryptor),
+            stream: self.stream.map(encryptor),
         })
     }
 
-    pub fn send(self, msg: Vec<u8>) -> DualResult<T, <T as futures::sink::Sink>::SinkError> {
-        self.sink.send(msg).wait()
+    pub fn send(self, msg: Vec<u8>) {
+        self.sink.send(msg).wait().unwrap();
     }
 
-    pub fn recv(self) -> Result<U> {
-        Ok(self.stream.take(1).into_inner())
+    pub fn recv(self, buf: &mut Vec<u8>) {
+        buf.extend(self.stream.take(1)
+                   .wait().last()
+                   .unwrap()
+                   .unwrap()
+                   .as_slice());
     }
 
-    pub fn split(self) -> (T, U) {
+    pub fn split(self) -> (SplitSink<Async>, SplitStream<Async>) {
+        (self.sink, self.stream)
+    }
+}
+
+impl EncryptedTun {
+    pub fn send(self, msg: Vec<u8>) {
+        self.sink.send(msg).wait().unwrap();
+    }
+
+    pub fn recv(self, buf: &mut Vec<u8>) {
+        buf.extend(self.stream.take(1)
+                   .wait().last()
+                   .unwrap()
+                   .unwrap()
+                   .as_slice());
+    }
+
+    pub fn split(self) -> (With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>, Map<SplitStream<Async>, en::En>) {
         (self.sink, self.stream)
     }
 }
