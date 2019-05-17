@@ -7,14 +7,15 @@ use std::io::Result;
 use keybob::Key;
 use tun_tap::{Iface, Mode};
 use tun_tap::r#async::Async;
+use tun_tap_mac::{Iface as MacIface, Mode as MacMode};
+use tun_tap_mac::r#async::Async as MacAsync;
 use std::process::Command;
 use tokio_core::reactor::Handle;
-use tokio_codec::{Decoder, Encoder};
 use futures::prelude::*;
 use futures::stream::{SplitSink, SplitStream};
 use futures::sink::With;
 use futures::stream::Map;
-use bytes::BytesMut;
+use std::result::Result as DualResult;
 
 fn cmd(cmd: &str, args: &[&str]) {
     let ecode = Command::new("ip")
@@ -63,6 +64,34 @@ where T: Sink<SinkItem=Vec<u8>>,
         })
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn new(handle: &Handle) -> Result<
+        EncryptedTun<
+            SplitSink<MacAsync>,
+            SplitStream<MacAsync>
+            >>
+        {
+        
+        let tun = MacIface::new("vpn%d", Mode::Tun);
+
+        if tun.is_err() {
+            eprintln!("ERROR: Permission denied. Try running as superuser");
+            ::std::process::exit(1);
+        }
+       
+        let tun_ok = tun.unwrap();
+        cmd("ip", &["addr", "add", "dev", tun_ok.name(), "10.107.1.3/24"]);
+        cmd("ip", &["link", "set", "up", "dev", tun_ok.name()]);
+        let (sink, stream) = MacAsync::new(tun_ok, handle)
+            .unwrap()
+            .split();
+        
+        Ok(EncryptedTun {
+            sink: sink,
+            stream: stream,
+        })
+    }
+    
     pub fn encrypt(self, key: &Key) -> Result<
         EncryptedTun<
             With<T, Vec<u8>, De, Result<Vec<u8>>>,
@@ -82,9 +111,8 @@ where T: Sink<SinkItem=Vec<u8>>,
         })
     }
 
-    pub fn send(self, msg: Vec<u8>) -> Result<()> {
-        self.sink.send(msg).wait();
-        Ok(())
+    pub fn send(self, msg: Vec<u8>) -> DualResult<T, <T as futures::sink::Sink>::SinkError> {
+        self.sink.send(msg).wait()
     }
 
     pub fn recv(self) -> Result<U> {
