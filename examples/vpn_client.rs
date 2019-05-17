@@ -66,7 +66,7 @@ fn main() {
     // Next, we'll want to create a UDP socket and use it to send the server our encryption key
     // You should probably use a handshake protocol that is safer than just this
     let sock = UdpSocket::bind(&loc_addr, &handle).unwrap();
-    sock.send_to(&key.as_slice(), &rem_addr);
+    sock.send_to(&key.as_slice(), &rem_addr).unwrap();
    
     // We'll split the UDP socket into its sink and stream as well
     let (udp_sink, udp_stream) = sock.framed(VecCodec(rem_addr))
