@@ -26,6 +26,13 @@ fn cmd(cmd: &str, args: &[&str]) {
 }
 
 pub struct Tun {
+    // A simple TUN interface
+    //
+    // # Examples
+    // ```let tun = Tun::new(&handle).unwrap();
+    // tun.send(vec![1, 3, 3, 7]).unwrap();
+    // ```
+    
     sink: SplitSink<Async>,
     stream: SplitStream<Async>,
 }
@@ -69,16 +76,21 @@ impl Tun {
         })
     }
 
-    pub fn send(self, msg: Vec<u8>) {
-        self.sink.send(msg).wait().unwrap();
+    pub fn send(self, msg: Vec<u8>) -> Result<()> {
+        match self.sink.send(msg).wait() {
+            Ok(_res) => Ok(()),
+            Err(err) => Err(err)
+        }
     }
 
-    pub fn recv(self, buf: &mut Vec<u8>) {
-        buf.extend(self.stream.take(1)
-                   .wait().last()
-                   .unwrap()
-                   .unwrap()
-                   .as_slice());
+    pub fn recv(self, buf: &mut Vec<u8>) -> Result<()> {
+        match self.stream.take(1).wait().last() {
+            Some(res) => {
+                buf.extend(res.unwrap().as_slice());
+                Ok(())
+                },
+            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "Sending failed"))
+        }
     }
 
     pub fn split(self) -> (SplitSink<Async>, SplitStream<Async>) {
@@ -87,16 +99,21 @@ impl Tun {
 }
 
 impl EncryptedTun {
-    pub fn send(self, msg: Vec<u8>) {
-        self.sink.send(msg).wait().unwrap();
+    pub fn send(self, msg: Vec<u8>) -> Result<()> {
+        match self.sink.send(msg).wait() {
+            Ok(_res) => Ok(()),
+            Err(err) => Err(err)
+        }
     }
 
-    pub fn recv(self, buf: &mut Vec<u8>) {
-        buf.extend(self.stream.take(1)
-                   .wait().last()
-                   .unwrap()
-                   .unwrap()
-                   .as_slice());
+    pub fn recv(self, buf: &mut Vec<u8>) -> Result<()> {
+        match self.stream.take(1).wait().last() {
+            Some(res) => {
+                buf.extend(res.unwrap().as_slice());
+                Ok(())
+                },
+            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "Sending failed"))
+        }
     }
 
     pub fn split(self) -> (With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>, Map<SplitStream<Async>, en::En>) {
