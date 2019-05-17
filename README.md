@@ -2,7 +2,7 @@
 
 `cobweb` is a Rust library for creating encrypted VPNs, focused on simplicity and security. It supports both Mac and Linux - Windows support is a long-term goal but not planned.
 
-Currently `cobweb` is in version 0.1.1, and it pretty much sucks. The APIs can be unwieldly, the error handling is minimal, and it is not well tested. Contributions are very welcome.
+Currently `cobweb` is in version 0.1.2, and it pretty much sucks. The APIs can be unwieldly, the error handling is minimal, and it is not well tested. Contributions are very welcome.
 
 Check out the documentation and examples for more info on how to use the library.
 
