@@ -10,8 +10,11 @@ extern crate keybob;
 use futures::prelude::*;
 use tokio_core::net::{UdpSocket, UdpCodec};
 use tokio_core::reactor::Core;
-use cobweb::EncryptedTun;
+use cobweb::Tun;
 use keybob::{Key, KeyType};
+use std::env;
+use std::net::SocketAddr;
+use std::io::Result;
 
 
 // This is a custom codec we've wrote for our UDP socket. It doesn't really do anything special,
@@ -43,7 +46,7 @@ fn main() {
         .unwrap()
         .parse()
         .unwrap();
-    let core = Core::new().unwrap();
+    let mut core = Core::new().unwrap();
     let handle = core.handle();
     let key = Key::new(KeyType::Aes256);
    
@@ -52,7 +55,7 @@ fn main() {
 
     // For now, we will have to initialize the interface using these unwieldly type definitions
     // This is planned to be fixed in later versions
-    let tun = EncryptedTun::<With<SplitSink<Async>, Vec<u8>, De, HalfResult<Vec<u8>>>, Map<SplitStream<Async>, En>>::new(&handle)
+    let tun = Tun::new(&handle)
         .unwrap()
         .encrypt(&key)
         .unwrap();

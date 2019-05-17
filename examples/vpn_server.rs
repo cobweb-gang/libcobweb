@@ -51,7 +51,7 @@ fn main() {
 
     // For now, we will have to initialize the interface using these unwieldly type definitions
     // This is planned to be fixed in later versions
-    let tun = EncryptedTun::<With<SplitSink<Async>, Vec<u8>, De, HalfResult<Vec<u8>>>, Map<SplitStream<Async>, En>>::new(&handle)
+    let tun = Tun::new(&handle)
         .unwrap()
         .encrypt(&key)
         .unwrap();
