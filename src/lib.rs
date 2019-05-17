@@ -26,7 +26,7 @@ fn cmd(cmd: &str, args: &[&str]) {
 }
 
 pub struct Tun {
-    // A simple TUN interface
+    // A simple TUN interface.
     //
     // # Examples
     // ```let tun = Tun::new(&handle).unwrap();
@@ -38,6 +38,15 @@ pub struct Tun {
 }
 
 pub struct EncryptedTun {
+    // An interface to an encrypted TUN device.
+    //
+    // # Examples
+    // ```let tun = Tun::new(&handle).unwrap()
+    //              .encrypt(&Key::new(KeyType::Aes256))
+    //              .unwrap();
+    // tun.send(vec![1, 3, 3, 7]).unwrap();
+    // ```
+    
     sink: With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>,
     stream: Map<SplitStream<Async>, en::En>,
 }
@@ -67,6 +76,9 @@ impl Tun {
     }
     
     pub fn encrypt(self, key: &Key) -> Result<EncryptedTun> {
+        // Consumes the Tun and create an EncryptedTun.
+        // You can use all the same methods on an EncryptedTun as you can with a regular Tun.
+        
         let encryptor = En::new(&key);
         let decryptor = De::new(&key);
        
@@ -77,6 +89,8 @@ impl Tun {
     }
 
     pub fn send(self, msg: Vec<u8>) -> Result<()> {
+        // Sends some bytes through the TUN device to whatever you have connected on the other end
+        
         match self.sink.send(msg).wait() {
             Ok(_res) => Ok(()),
             Err(err) => Err(err)
@@ -84,6 +98,8 @@ impl Tun {
     }
 
     pub fn recv(self, buf: &mut Vec<u8>) -> Result<()> {
+        // Receives bytes from the TUN device
+
         match self.stream.take(1).wait().last() {
             Some(res) => {
                 buf.extend(res.unwrap().as_slice());
@@ -100,6 +116,8 @@ impl Tun {
 
 impl EncryptedTun {
     pub fn send(self, msg: Vec<u8>) -> Result<()> {
+        // Sends some bytes through the TUN device to whatever you have connected on the other end
+        
         match self.sink.send(msg).wait() {
             Ok(_res) => Ok(()),
             Err(err) => Err(err)
@@ -107,6 +125,8 @@ impl EncryptedTun {
     }
 
     pub fn recv(self, buf: &mut Vec<u8>) -> Result<()> {
+        // Receives bytes from the TUN device
+        
         match self.stream.take(1).wait().last() {
             Some(res) => {
                 buf.extend(res.unwrap().as_slice());
@@ -117,6 +137,11 @@ impl EncryptedTun {
     }
 
     pub fn split(self) -> (With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>, Map<SplitStream<Async>, en::En>) {
+        // Split the interface into its Sink and Stream components.
+        // This is useful if you want to send and receive bytes from
+        // another interface (like a UDP socket for example) and send them to
+        // your TUN device.
+
         (self.sink, self.stream)
     }
 }
