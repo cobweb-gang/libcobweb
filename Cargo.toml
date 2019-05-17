@@ -15,6 +15,9 @@ keywords = ["vpn", "tun", "encryption", "network"]
 futures = "0.1.23"
 tokio-core = "0.1.17"
 tun-tap = "0.1.1"
-miscreant = "0.4.2"
 keybob = "0.3.1"
 tun-tap-mac = "0.1.2"
+
+[dependencies.miscreant]
+version = "0.4.2"
+features = ["soft-aes"]
