@@ -2,6 +2,8 @@
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
 
+mod en;
+
 use crate::en::{En, De};
 use std::io::Result;
 use keybob::Key;
@@ -35,20 +37,6 @@ pub struct Tun {
     
     sink: SplitSink<Async>,
     stream: SplitStream<Async>,
-}
-
-pub struct EncryptedTun {
-    // An interface to an encrypted TUN device.
-    //
-    // # Examples
-    // ```let tun = Tun::new(&handle).unwrap()
-    //              .encrypt(&Key::new(KeyType::Aes256))
-    //              .unwrap();
-    // tun.send(vec![1, 3, 3, 7]).unwrap();
-    // ```
-    
-    sink: With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>,
-    stream: Map<SplitStream<Async>, en::En>,
 }
 
 impl Tun {
@@ -114,6 +102,42 @@ impl Tun {
     }
 }
 
+impl Sink for Tun {
+    type SinkItem = Vec<u8>;
+    type SinkError = std::io::Error;
+
+    fn start_send(&mut self, item: Vec<u8>) -> DualResult<futures::AsyncSink<Vec<u8>>, std::io::Error> {
+        self.sink.start_send(item)
+    }
+
+    fn poll_complete(&mut self) -> DualResult<futures::Async<()>, std::io::Error> {
+        self.sink.poll_complete()
+    }
+}
+
+impl Stream for Tun {
+    type Item = Vec<u8>;
+    type Error = std::io::Error;
+
+    fn poll(&mut self) -> DualResult<futures::Async<Option<Vec<u8>>>, std::io::Error> {
+        self.stream.poll()
+    }
+}
+
+pub struct EncryptedTun {
+    // An interface to an encrypted TUN device.
+    //
+    // # Examples
+    // ```let tun = Tun::new(&handle).unwrap()
+    //              .encrypt(&Key::new(KeyType::Aes256))
+    //              .unwrap();
+    // tun.send(vec![1, 3, 3, 7]).unwrap();
+    // ```
+    
+    sink: With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>,
+    stream: Map<SplitStream<Async>, en::En>,
+}
+
 impl EncryptedTun {
     pub fn send(self, msg: Vec<u8>) -> Result<()> {
         // Sends some bytes through the TUN device to whatever you have connected on the other end
@@ -146,6 +170,28 @@ impl EncryptedTun {
     }
 }
 
+impl Sink for EncryptedTun {
+    type SinkItem = Vec<u8>;
+    type SinkError = std::io::Error;
+
+    fn start_send(&mut self, item: Vec<u8>) -> DualResult<futures::AsyncSink<Vec<u8>>, std::io::Error> {
+        self.sink.start_send(item)
+    }
+
+    fn poll_complete(&mut self) -> DualResult<futures::Async<()>, std::io::Error> {
+        self.sink.poll_complete()
+    }
+}
+
+impl Stream for EncryptedTun {
+    type Item = Vec<u8>;
+    type Error = std::io::Error;
+
+    fn poll(&mut self) -> DualResult<futures::Async<Option<Vec<u8>>>, std::io::Error> {
+        self.stream.poll()
+    }
+}
+/*
 mod en {
     use keybob::Key;
     use miscreant::stream::{Encryptor, Decryptor, NONCE_SIZE};
@@ -199,4 +245,4 @@ mod en {
             Ok(opened)
         }
     }
-}
+}*/

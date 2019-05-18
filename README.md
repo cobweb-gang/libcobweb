@@ -1,16 +1,14 @@
 # Cobweb
-
-`cobweb` is a Rust library for creating encrypted VPNs, focused on simplicity and security. It supports both Mac and Linux - Windows support is a long-term goal but not planned.
-
-Currently `cobweb` is in version 0.1.2, and it pretty much sucks. The APIs can be unwieldly, the error handling is minimal, and it is not well tested. Contributions are very welcome.
+Cobweb is a Rust library for creating fully asynchronous, encrypted VPNs, focused on simplicity and security. It supports both Mac and Linux - Windows support is a long-term goal but not planned.
 
 Check out the documentation and examples for more info on how to use the library.
 
-`cobweb` is licensed under AGPLv3 to make sure that is free software and stays as free software. If you want a relicensed version for your project, email me and we (the contributers) will talk with you.
+Cobweb is licensed under AGPLv3 to make sure that is free software and stays as free software. If you want a relicensed version for your project, email me and we (the contributers) will talk with you.
 
-## Build
-Building a crate that depends on `cobweb` will require the following flag to be set:
+## Examples
+Check the `examples` directory in the repository for example VPN client and server implementations.
 
-```
-RUSTFLAGS=-Ctarget-feature=+aes,+ssse3
-```
+## Next Release
+Cobweb is currently in its `0.2.0` release - it provides enough features and documentation to be used powerfully, but lacks planned features, could use some better error handling and is not thoroughly tested. Use at your own risk.
+
+`0.2.1` will see the first release of the optional `async-await-preview` feature to the crate. This flag will give access to code based on the upcoming `std::Future` and async/await APIs. Once those APIs become stable, the code based on the `futures` crate will be deprecated and moved under an optional `old-futures` flag, and Cobweb will see its `0.3.0` release.
