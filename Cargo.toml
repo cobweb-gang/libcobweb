@@ -1,6 +1,6 @@
 [package]
 name = "cobweb"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["David Bernado <dbernado@protonmail.com>"]
 homepage = "https://cobweb-gang.github.io"
 repository = "https://github.com/cobweb-gang/libcobweb"
