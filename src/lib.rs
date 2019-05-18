@@ -2,6 +2,21 @@
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
 
+//!# Cobweb
+//!Cobweb is a Rust library for creating fully asynchronous, encrypted VPNs, focused on simplicity and security. It supports both Mac and Linux - Windows support is a long-term goal but not planned.
+
+//!Check out the documentation and examples for more info on how to use the library.
+
+//!Cobweb is licensed under AGPLv3 to make sure that is free software and stays as free software. If you want a relicensed version for your project, email me and we (the contributers) will talk with you.
+
+//!## Examples
+//!Check the `examples` directory in the repository for example VPN client and server implementations.
+
+//!## Next Release
+//!Cobweb is currently in its `0.2.0` release - it provides enough features and documentation to be used powerfully, but lacks planned features, could use some better error handling and is not thoroughly tested. Use at your own risk.
+
+//!`0.2.1` will see the first release of the optional `async-await-preview` feature to the crate. This flag will give access to code based on the upcoming `std::Future` and async/await APIs. Once those APIs become stable, the code based on the `futures` crate will be deprecated and moved under an optional `old-futures` flag, and Cobweb will see its `0.3.0` release.
+
 mod en;
 
 use crate::en::{En, De};
@@ -28,12 +43,12 @@ fn cmd(cmd: &str, args: &[&str]) {
 }
 
 pub struct Tun {
-    // A simple TUN interface.
-    //
-    // # Examples
-    // ```let tun = Tun::new(&handle).unwrap();
-    // tun.send(vec![1, 3, 3, 7]).unwrap();
-    // ```
+    /// A simple TUN interface.
+    ///
+    /// # Examples
+    /// ```let tun = Tun::new(&handle).unwrap();
+    /// tun.send(vec![1, 3, 3, 7]).unwrap();
+    /// ```
     
     sink: SplitSink<Async>,
     stream: SplitStream<Async>,
@@ -64,8 +79,8 @@ impl Tun {
     }
     
     pub fn encrypt(self, key: &Key) -> Result<EncryptedTun> {
-        // Consumes the Tun and create an EncryptedTun.
-        // You can use all the same methods on an EncryptedTun as you can with a regular Tun.
+        /// Consumes the Tun and create an EncryptedTun.
+        /// You can use all the same methods on an EncryptedTun as you can with a regular Tun.
         
         let encryptor = En::new(&key);
         let decryptor = De::new(&key);
@@ -77,7 +92,7 @@ impl Tun {
     }
 
     pub fn send(self, msg: Vec<u8>) -> Result<()> {
-        // Sends some bytes through the TUN device to whatever you have connected on the other end
+        /// Sends some bytes through the TUN device to whatever you have connected on the other end
         
         match self.sink.send(msg).wait() {
             Ok(_res) => Ok(()),
@@ -86,7 +101,7 @@ impl Tun {
     }
 
     pub fn recv(self, buf: &mut Vec<u8>) -> Result<()> {
-        // Receives bytes from the TUN device
+        /// Receives bytes from the TUN device
 
         match self.stream.take(1).wait().last() {
             Some(res) => {
@@ -125,14 +140,14 @@ impl Stream for Tun {
 }
 
 pub struct EncryptedTun {
-    // An interface to an encrypted TUN device.
-    //
-    // # Examples
-    // ```let tun = Tun::new(&handle).unwrap()
-    //              .encrypt(&Key::new(KeyType::Aes256))
-    //              .unwrap();
-    // tun.send(vec![1, 3, 3, 7]).unwrap();
-    // ```
+    /// An interface to an encrypted TUN device.
+    ///
+    /// # Examples
+    /// ```let tun = Tun::new(&handle).unwrap()
+    ///              .encrypt(&Key::new(KeyType::Aes256))
+    ///              .unwrap();
+    /// tun.send(vec![1, 3, 3, 7]).unwrap();
+    /// ```
     
     sink: With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>,
     stream: Map<SplitStream<Async>, en::En>,
@@ -140,7 +155,7 @@ pub struct EncryptedTun {
 
 impl EncryptedTun {
     pub fn send(self, msg: Vec<u8>) -> Result<()> {
-        // Sends some bytes through the TUN device to whatever you have connected on the other end
+        /// Sends some bytes through the TUN device to whatever you have connected on the other end
         
         match self.sink.send(msg).wait() {
             Ok(_res) => Ok(()),
@@ -149,7 +164,7 @@ impl EncryptedTun {
     }
 
     pub fn recv(self, buf: &mut Vec<u8>) -> Result<()> {
-        // Receives bytes from the TUN device
+        /// Receives bytes from the TUN device
         
         match self.stream.take(1).wait().last() {
             Some(res) => {
@@ -161,10 +176,10 @@ impl EncryptedTun {
     }
 
     pub fn split(self) -> (With<SplitSink<Async>, Vec<u8>, en::De, DualResult<Vec<u8>, std::io::Error>>, Map<SplitStream<Async>, en::En>) {
-        // Split the interface into its Sink and Stream components.
-        // This is useful if you want to send and receive bytes from
-        // another interface (like a UDP socket for example) and send them to
-        // your TUN device.
+        /// Split the interface into its Sink and Stream components.
+        /// This is useful if you want to send and receive bytes from
+        /// another interface (like a UDP socket for example) and send them to
+        /// your TUN device.
 
         (self.sink, self.stream)
     }
@@ -191,58 +206,3 @@ impl Stream for EncryptedTun {
         self.stream.poll()
     }
 }
-/*
-mod en {
-    use keybob::Key;
-    use miscreant::stream::{Encryptor, Decryptor, NONCE_SIZE};
-    use miscreant::Aes128SivAead;
-    use std::io::Result;
-
-    const NONCE_PREFIX: &[u8; NONCE_SIZE] = &[0u8; NONCE_SIZE];
-
-    pub struct En(Encryptor<Aes128SivAead>);
-
-    impl En {
-        pub fn new(key: &Key) -> Self {
-            En(Encryptor::new(key.as_slice(), NONCE_PREFIX))
-        }
-    }
-
-    impl FnOnce<(Vec<u8>,)> for En {
-        type Output = Vec<u8>;
-
-        extern "rust-call" fn call_once(mut self, args: (Vec<u8>,)) -> Self::Output {
-            self.0.seal_next(&[], args.0.as_slice())
-        }
-    }
-
-    impl FnMut<(Vec<u8>,)> for En {
-        extern "rust-call" fn call_mut(&mut self, args: (Vec<u8>,)) -> Self::Output {
-            self.0.seal_next(&[], args.0.as_slice())
-        }
-    }
-
-    pub struct De(Decryptor<Aes128SivAead>);
-
-    impl De {
-        pub fn new(key: &Key) -> Self {
-            De(Decryptor::new(key.as_slice(), NONCE_PREFIX))
-        }
-    }
-
-    impl FnOnce<(Vec<u8>,)> for De {
-        type Output = Result<Vec<u8>>;
-
-        extern "rust-call" fn call_once(mut self, args: (Vec<u8>,)) -> Self::Output {
-            let opened = self.0.open_next(&[], args.0.as_slice()).unwrap();
-            Ok(opened)
-        }
-    }
-
-    impl FnMut<(Vec<u8>,)> for De {
-        extern "rust-call" fn call_mut(&mut self, args: (Vec<u8>,)) -> Self::Output {
-            let opened = self.0.open_next(&[], args.0.as_slice()).unwrap();
-            Ok(opened)
-        }
-    }
-}*/
